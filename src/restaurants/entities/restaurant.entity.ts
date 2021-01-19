@@ -8,4 +8,10 @@ export class Restaurant {
 
   @Field((type) => Boolean, { nullable: true })
   isGood?: boolean;
+
+  @Field((type) => String)
+  address: string;
+
+  @Field((type) => String)
+  owner: string;
 }
