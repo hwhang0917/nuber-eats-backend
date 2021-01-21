@@ -7,3 +7,15 @@
 [![](https://img.shields.io/badge/author-RunFridge-brightgreen)](https://github.com/hwhang0917)
 
 > This project is an Uber Eats clone practice project for backend, following lecture from [Nomad Coders](https://nomadcoders.co/)
+
+## Models
+
+### User Entity:
+
+- [ ] id
+- [ ] createdAt
+- [ ] updatedAt
+
+- [ ] email
+- [ ] password
+- [ ] role (client|owner|delivery)
