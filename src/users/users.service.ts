@@ -68,4 +68,9 @@ export class UsersService {
     }
     return this.users.save(user);
   }
+
+  async deleteUser(userId: number): Promise<User> {
+    const user = await this.users.findOne(userId);
+    return this.users.remove(user);
+  }
 }

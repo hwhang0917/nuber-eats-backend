@@ -7,6 +7,7 @@ import {
   CreateAccountInput,
   CreateAccountOutput,
 } from './dtos/create-account.dto';
+import { DeleteAccountOutput } from './dtos/delete-account.dto';
 import { EditProfileInput, EditProfileOutput } from './dtos/edit-profile.dto';
 import { LoginInput, LoginOutput } from './dtos/login.dto';
 import { UserProfileInput, UserProfileOutput } from './dtos/user-profile.dto';
@@ -79,6 +80,24 @@ export class UsersResolver {
   ): Promise<EditProfileOutput> {
     try {
       await this.usersService.editProfile(authUser.id, editProfileInput);
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error,
+      };
+    }
+  }
+
+  @Mutation((returns) => DeleteAccountOutput)
+  @UseGuards(AuthGuard)
+  async deleteMyAccount(
+    @AuthUser() authUser: User,
+  ): Promise<DeleteAccountOutput> {
+    try {
+      await this.usersService.deleteUser(authUser.id);
       return {
         ok: true,
       };
