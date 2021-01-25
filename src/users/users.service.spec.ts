@@ -175,12 +175,12 @@ describe('UserService', () => {
       id: 1,
     };
     it('should find an existing user', async () => {
-      usersRepository.findOneOrFail.mockResolvedValue(findOneArgs);
+      usersRepository.findOne.mockResolvedValue(findOneArgs);
       const result = await service.findById(1);
       expect(result).toEqual({ ok: true, user: findOneArgs });
     });
     it('should fail if no user is found', async () => {
-      usersRepository.findOneOrFail.mockRejectedValue(new Error());
+      usersRepository.findOne.mockRejectedValue(new Error());
       const result = await service.findById(1);
       expect(result).toEqual({ ok: false, error: 'User not found' });
     });
@@ -281,8 +281,10 @@ describe('UserService', () => {
       expect(result).toEqual({ ok: true });
     });
 
-    it('should fail if user does not exists', async () => {
-      usersRepository.findOne.mockResolvedValue(undefined);
+    it('should fail on exception', async () => {
+      usersRepository.findOne.mockRejectedValue(new Error());
+      const result = await service.deleteUser(deleteUserArg.userId);
+      expect(result).toEqual({ ok: false, error: 'Could not delete account' });
     });
   });
 
