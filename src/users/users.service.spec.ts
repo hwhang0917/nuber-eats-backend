@@ -175,12 +175,12 @@ describe('UserService', () => {
       id: 1,
     };
     it('should find an existing user', async () => {
-      usersRepository.findOne.mockResolvedValue(findOneArgs);
+      usersRepository.findOneOrFail.mockResolvedValue(findOneArgs);
       const result = await service.findById(1);
       expect(result).toEqual({ ok: true, user: findOneArgs });
     });
     it('should fail if no user is found', async () => {
-      usersRepository.findOne.mockRejectedValue(new Error());
+      usersRepository.findOneOrFail.mockRejectedValue(new Error());
       const result = await service.findById(1);
       expect(result).toEqual({ ok: false, error: 'User not found' });
     });
@@ -262,6 +262,27 @@ describe('UserService', () => {
       );
 
       expect(result).toEqual({ ok: false, error: 'Could not update profile' });
+    });
+  });
+
+  describe('deleteUser', () => {
+    const deleteUserArg = { userId: 1 };
+    const mockUser = {
+      id: 1,
+      email: 'test@test.com',
+    };
+    it('should delete user', async () => {
+      usersRepository.findOne.mockResolvedValue(mockUser);
+
+      const result = await service.deleteUser(deleteUserArg.userId);
+
+      expect(usersRepository.remove).toBeCalled();
+      expect(usersRepository.remove).toBeCalledWith(mockUser);
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('should fail if user does not exists', async () => {
+      usersRepository.findOne.mockResolvedValue(undefined);
     });
   });
 
