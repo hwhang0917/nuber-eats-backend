@@ -50,7 +50,7 @@ export class UserService {
       this.mailService.sendVerificationEmail(user.email, verification.code);
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: "Couldn't create account" };
+      return { ok: false, error: 'Could not create account' };
     }
   }
 
@@ -70,7 +70,7 @@ export class UserService {
       const token = this.jwtService.sign({ id: user.id });
       return { ok: true, token };
     } catch (error) {
-      return { ok: false, error };
+      return { ok: false, error: 'Could not log user in' };
     }
   }
 
@@ -137,7 +137,7 @@ export class UserService {
       }
       return { ok: false, error: 'Verification not found.' };
     } catch (error) {
-      return { ok: false, error };
+      return { ok: false, error: 'Could not verify email' };
     }
   }
 }
