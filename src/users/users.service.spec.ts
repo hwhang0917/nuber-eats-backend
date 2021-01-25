@@ -170,7 +170,21 @@ describe('UserService', () => {
       expect(result).toEqual({ ok: false, error: 'Could not log user in' });
     });
   });
-  it.todo('findById');
+  describe('findById', () => {
+    const findOneArgs = {
+      id: 1,
+    };
+    it('should find an existing user', async () => {
+      usersRepository.findOne.mockResolvedValue(findOneArgs);
+      const result = await service.findById(1);
+      expect(result).toEqual({ ok: true, user: findOneArgs });
+    });
+    it('should fail if no user is found', async () => {
+      usersRepository.findOne.mockRejectedValue(new Error());
+      const result = await service.findById(1);
+      expect(result).toEqual({ ok: false, error: 'User not found' });
+    });
+  });
   it.todo('editProfile');
   it.todo('verifyEmail');
 });
