@@ -77,9 +77,7 @@ export class UserService {
   async findById(id: number): Promise<UserProfileOutput> {
     try {
       const user = await this.users.findOne({ id });
-      if (user) {
-        return { ok: true, user };
-      }
+      return { ok: true, user };
     } catch (error) {
       return { ok: false, error: 'User not found' };
     }
@@ -114,9 +112,7 @@ export class UserService {
   async deleteUser(userId: number): Promise<DeleteAccountOutput> {
     try {
       const user = await this.users.findOne(userId);
-      if (user) {
-        await this.users.remove(user);
-      }
+      await this.users.remove(user);
       return { ok: true };
     } catch (error) {
       return { ok: false, error: 'Could not delete account' };
