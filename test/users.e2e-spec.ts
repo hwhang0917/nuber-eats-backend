@@ -2,7 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
-import { getConnection } from 'typeorm';
+import { getConnection, Repository } from 'typeorm';
+import { User } from 'src/users/entities/user.entity';
+import { getRepositoryToken } from '@nestjs/typeorm';
 
 const testUser = {
   email: 'test@test.com',
@@ -19,7 +21,8 @@ const GRAPHQL_ENDPOINT = '/graphql';
 
 describe('UserModule (e2e)', () => {
   let app: INestApplication;
-  let graphQLQuery: (query: string) => request.Test;
+  let graphQLQuery: (query: string, jwtToken?: string) => request.Test;
+  let usersRepository: Repository<User>;
   let jwtToken: string;
 
   beforeAll(async () => {
@@ -28,9 +31,13 @@ describe('UserModule (e2e)', () => {
     }).compile();
 
     app = module.createNestApplication();
+    usersRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    graphQLQuery = (query: string, jwtToken?: string) =>
+      request(app.getHttpServer())
+        .post(GRAPHQL_ENDPOINT)
+        .set('X-JWT', jwtToken ? jwtToken : '')
+        .send({ query });
     await app.init();
-    graphQLQuery = (query: string) =>
-      request(app.getHttpServer()).post(GRAPHQL_ENDPOINT).send({ query });
   });
 
   afterAll(async () => {
@@ -41,16 +48,16 @@ describe('UserModule (e2e)', () => {
   describe('createAccount', () => {
     it('should create an account', () => {
       return graphQLQuery(`
-        mutation {
-          createAccount(input:{
-            email:"${testUser.email}",
-            password:"${testUser.password}",
-            role:Admin
-          }) {
-            ok
-            error
+          mutation {
+            createAccount(input:{
+              email:"${testUser.email}",
+              password:"${testUser.password}",
+              role:Admin
+            }) {
+              ok
+              error
+            }
           }
-        }
         `)
         .expect(200)
         .expect((res) => {
@@ -61,16 +68,16 @@ describe('UserModule (e2e)', () => {
 
     it('should fail if account already exists', () => {
       return graphQLQuery(`
-        mutation {
-          createAccount(input:{
-            email:"${testUser.email}",
-            password:"${testUser.password}",
-            role:Admin
-          }) {
-            ok
-            error
+          mutation {
+            createAccount(input:{
+              email:"${testUser.email}",
+              password:"${testUser.password}",
+              role:Admin
+            }) {
+              ok
+              error
+            }
           }
-        }
         `)
         .expect(200)
         .expect((res) => {
@@ -85,16 +92,16 @@ describe('UserModule (e2e)', () => {
   describe('login', () => {
     it('should login with correct credentials', () => {
       return graphQLQuery(`
-      mutation {
-        login(input:{
-          email:"${testUser.email}",
-          password:"${testUser.password}"
-        }) {
-          ok
-          error
-          token
+        mutation {
+          login(input:{
+            email:"${testUser.email}",
+            password:"${testUser.password}"
+          }) {
+            ok
+            error
+            token
+          }
         }
-      }
       `)
         .expect(200)
         .expect((res) => {
@@ -112,16 +119,16 @@ describe('UserModule (e2e)', () => {
 
     it('should deny login with wrong password', () => {
       return graphQLQuery(`
-      mutation {
-        login(input:{
-          email:"${testUser.email}",
-          password:"wrong-password"
-        }) {
-          ok
-          error
-          token
+        mutation {
+          login(input:{
+            email:"${testUser.email}",
+            password:"wrong-password"
+          }) {
+            ok
+            error
+            token
+          }
         }
-      }
       `)
         .expect(200)
         .expect((res) => {
@@ -138,16 +145,16 @@ describe('UserModule (e2e)', () => {
 
     it('should deny login with email that does not exists', () => {
       return graphQLQuery(`
-      mutation {
-        login(input:{
-          email:"unknown@unknown.com",
-          password:"wrong-password"
-        }) {
-          ok
-          error
-          token
+        mutation {
+          login(input:{
+            email:"unknown@unknown.com",
+            password:"wrong-password"
+          }) {
+            ok
+            error
+            token
+          }
         }
-      }
       `)
         .expect(200)
         .expect((res) => {
@@ -164,9 +171,96 @@ describe('UserModule (e2e)', () => {
   });
 
   describe('userProfile', () => {
-    it.todo('should get the user profile of given userId');
+    let userId: number;
 
-    it.todo("should fail if account doesn't exist");
+    beforeAll(async () => {
+      const user = await usersRepository.findOne({ email: testUser.email });
+      userId = user.id;
+    });
+
+    it('should get the user profile of given userId', () => {
+      return graphQLQuery(
+        `
+          {
+            userProfile(userId: ${userId}) {
+              ok
+              error
+              user {
+                email
+              }
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: {
+                userProfile: {
+                  ok,
+                  error,
+                  user: { email },
+                },
+              },
+            },
+          } = res;
+          expect(ok).toBe(true);
+          expect(error).toBe(null);
+          expect(email).toEqual(testUser.email);
+        });
+    });
+
+    it('should fail if token is invalid', () => {
+      return graphQLQuery(
+        `
+          {
+            userProfile(userId: ${userId}) {
+              ok
+              error
+              user {
+                email
+              }
+            }
+          }
+        `,
+        'invalid-token',
+      ).expect((res) => {
+        expect(res.body.errors).toEqual(expect.any(Object));
+        expect(res.body.data).toBe(null);
+      });
+    });
+
+    it("should fail if account doesn't exist", () => {
+      return graphQLQuery(
+        `
+          {
+            userProfile(userId: 9999) {
+              ok
+              error
+              user {
+                email
+              }
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: {
+                userProfile: { ok, error, user },
+              },
+            },
+          } = res;
+          expect(ok).toBe(false);
+          expect(error).toBe('User not found');
+          expect(user).toBe(null);
+        });
+    });
   });
 
   it.todo('me');
