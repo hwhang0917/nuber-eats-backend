@@ -4,6 +4,11 @@ import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
 import { getConnection } from 'typeorm';
 
+const testUser = {
+  email: 'test@test.com',
+  password: 'test',
+};
+
 jest.mock('got', () => {
   return {
     post: jest.fn(),
@@ -14,6 +19,8 @@ const GRAPHQL_ENDPOINT = '/graphql';
 
 describe('UserModule (e2e)', () => {
   let app: INestApplication;
+  let graphQLQuery: (query: string) => request.Test;
+  let jwtToken: string;
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,6 +29,8 @@ describe('UserModule (e2e)', () => {
 
     app = module.createNestApplication();
     await app.init();
+    graphQLQuery = (query: string) =>
+      request(app.getHttpServer()).post(GRAPHQL_ENDPOINT).send({ query });
   });
 
   afterAll(async () => {
@@ -30,25 +39,19 @@ describe('UserModule (e2e)', () => {
   });
 
   describe('createAccount', () => {
-    const EMAIL = 'test@test.com';
-
     it('should create an account', () => {
-      return request(app.getHttpServer())
-        .post(GRAPHQL_ENDPOINT)
-        .send({
-          query: `
+      return graphQLQuery(`
         mutation {
           createAccount(input:{
-            email:"${EMAIL}",
-            password:"test",
+            email:"${testUser.email}",
+            password:"${testUser.password}",
             role:Admin
           }) {
             ok
             error
           }
         }
-        `,
-        })
+        `)
         .expect(200)
         .expect((res) => {
           expect(res.body.data.createAccount.ok).toBe(true);
@@ -57,22 +60,18 @@ describe('UserModule (e2e)', () => {
     });
 
     it('should fail if account already exists', () => {
-      return request(app.getHttpServer())
-        .post(GRAPHQL_ENDPOINT)
-        .send({
-          query: `
+      return graphQLQuery(`
         mutation {
           createAccount(input:{
-            email:"${EMAIL}",
-            password:"test",
+            email:"${testUser.email}",
+            password:"${testUser.password}",
             role:Admin
           }) {
             ok
             error
           }
         }
-        `,
-        })
+        `)
         .expect(200)
         .expect((res) => {
           expect(res.body.data.createAccount.ok).toBe(false);
@@ -83,9 +82,92 @@ describe('UserModule (e2e)', () => {
     });
   });
 
-  it.todo('userProfile');
+  describe('login', () => {
+    it('should login with correct credentials', () => {
+      return graphQLQuery(`
+      mutation {
+        login(input:{
+          email:"${testUser.email}",
+          password:"${testUser.password}"
+        }) {
+          ok
+          error
+          token
+        }
+      }
+      `)
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: { login },
+            },
+          } = res;
+          expect(login.ok).toBe(true);
+          expect(login.error).toBe(null);
+          expect(login.token).toEqual(expect.any(String));
+          jwtToken = login.token;
+        });
+    });
 
-  it.todo('login');
+    it('should deny login with wrong password', () => {
+      return graphQLQuery(`
+      mutation {
+        login(input:{
+          email:"${testUser.email}",
+          password:"wrong-password"
+        }) {
+          ok
+          error
+          token
+        }
+      }
+      `)
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: { login },
+            },
+          } = res;
+          expect(login.ok).toBe(false);
+          expect(login.error).toBe('Wrong password');
+          expect(login.token).toBe(null);
+        });
+    });
+
+    it('should deny login with email that does not exists', () => {
+      return graphQLQuery(`
+      mutation {
+        login(input:{
+          email:"unknown@unknown.com",
+          password:"wrong-password"
+        }) {
+          ok
+          error
+          token
+        }
+      }
+      `)
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: { login },
+            },
+          } = res;
+          expect(login.ok).toBe(false);
+          expect(login.error).toBe('User not found');
+          expect(login.token).toBe(null);
+        });
+    });
+  });
+
+  describe('userProfile', () => {
+    it.todo('should get the user profile of given userId');
+
+    it.todo("should fail if account doesn't exist");
+  });
 
   it.todo('me');
 
