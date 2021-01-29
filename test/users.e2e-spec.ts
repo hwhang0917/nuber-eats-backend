@@ -19,11 +19,12 @@ jest.mock('got', () => {
 
 const GRAPHQL_ENDPOINT = '/graphql';
 
-describe('UserModule (e2e)', () => {
+describe('UserModule (E2E)', () => {
   let app: INestApplication;
   let graphQLQuery: (query: string, jwtToken?: string) => request.Test;
   let usersRepository: Repository<User>;
   let jwtToken: string;
+  const invalidToken = 'invalid-token';
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -225,7 +226,7 @@ describe('UserModule (e2e)', () => {
             }
           }
         `,
-        'invalid-token',
+        invalidToken,
       ).expect((res) => {
         expect(res.body.errors).toEqual(expect.any(Object));
         expect(res.body.data).toBe(null);
@@ -263,7 +264,62 @@ describe('UserModule (e2e)', () => {
     });
   });
 
-  it.todo('me');
+  describe('me', () => {
+    let userId: number;
+
+    beforeAll(async () => {
+      const user = await usersRepository.findOne({ email: testUser.email });
+      userId = user.id;
+    });
+
+    it('should find my profile', () => {
+      return graphQLQuery(
+        `
+          {
+            me {
+              id
+              email
+            }
+          }
+        `,
+        invalidToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: { data },
+          } = res;
+          expect(res.body.errors).toEqual(expect.any(Object));
+          expect(data).toBe(null);
+        });
+    });
+
+    it('should deny logged out user', () => {
+      return graphQLQuery(
+        `
+          {
+            me {
+              id
+              email
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: {
+                me: { id, email },
+              },
+            },
+          } = res;
+          expect(id).toBe(userId);
+          expect(email).toBe(testUser.email);
+        });
+    });
+  });
 
   it.todo('verifyEmail');
 
