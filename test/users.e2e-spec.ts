@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { getConnection, Repository } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { Verification } from 'src/users/entities/verification.entity';
 
 const testUser = {
   email: 'test@test.com',
@@ -23,8 +24,9 @@ describe('UserModule (E2E)', () => {
   let app: INestApplication;
   let graphQLQuery: (query: string, jwtToken?: string) => request.Test;
   let usersRepository: Repository<User>;
+  let verificationsRepository: Repository<Verification>;
   let jwtToken: string;
-  const invalidToken = 'invalid-token';
+  const invalidValue = 'invalid-value';
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,6 +35,9 @@ describe('UserModule (E2E)', () => {
 
     app = module.createNestApplication();
     usersRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    verificationsRepository = module.get<Repository<Verification>>(
+      getRepositoryToken(Verification),
+    );
     graphQLQuery = (query: string, jwtToken?: string) =>
       request(app.getHttpServer())
         .post(GRAPHQL_ENDPOINT)
@@ -226,7 +231,7 @@ describe('UserModule (E2E)', () => {
             }
           }
         `,
-        invalidToken,
+        invalidValue,
       ).expect((res) => {
         expect(res.body.errors).toEqual(expect.any(Object));
         expect(res.body.data).toBe(null);
@@ -282,7 +287,7 @@ describe('UserModule (E2E)', () => {
             }
           }
         `,
-        invalidToken,
+        invalidValue,
       )
         .expect(200)
         .expect((res) => {
@@ -321,7 +326,71 @@ describe('UserModule (E2E)', () => {
     });
   });
 
-  it.todo('verifyEmail');
+  describe('verifyEmail', () => {
+    let verificationCode: string;
+
+    beforeAll(async () => {
+      const [verification] = await verificationsRepository.find();
+      verificationCode = verification.code;
+    });
+
+    it('should verify email', () => {
+      return graphQLQuery(
+        `
+          mutation {
+            verifyEmail(input:{
+              code: "${verificationCode}"
+            }) {
+              ok
+              error
+            }
+          }
+        `,
+      )
+        .expect(200)
+        .expect(async (res) => {
+          const {
+            body: {
+              data: {
+                verifyEmail: { ok, error },
+              },
+            },
+          } = res;
+          expect(ok).toBe(true);
+          expect(error).toBe(null);
+
+          const [user] = await usersRepository.find();
+          expect(user.verified).toBe(true);
+        });
+    });
+
+    it('should fail on verification code not found', () => {
+      return graphQLQuery(
+        `
+          mutation {
+            verifyEmail(input:{
+              code: "${invalidValue}"
+            }) {
+              ok
+              error
+            }
+          }
+        `,
+      )
+        .expect(200)
+        .expect(async (res) => {
+          const {
+            body: {
+              data: {
+                verifyEmail: { ok, error },
+              },
+            },
+          } = res;
+          expect(ok).toBe(false);
+          expect(error).toBe('Verification not found');
+        });
+    });
+  });
 
   it.todo('editProfile');
 
