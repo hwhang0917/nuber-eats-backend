@@ -277,7 +277,7 @@ describe('UserModule (E2E)', () => {
       userId = user.id;
     });
 
-    it('should find my profile', () => {
+    it('should deny logged out user', () => {
       return graphQLQuery(
         `
           {
@@ -299,7 +299,7 @@ describe('UserModule (E2E)', () => {
         });
     });
 
-    it('should deny logged out user', () => {
+    it('should find my profile', () => {
       return graphQLQuery(
         `
           {
@@ -392,7 +392,141 @@ describe('UserModule (E2E)', () => {
     });
   });
 
-  it.todo('editProfile');
+  describe('editProfile', () => {
+    const NEW_EMAIL = 'new@new.com';
+    const NEW_PASSWORD = 'newpassword';
+
+    it('should change email', () => {
+      return graphQLQuery(
+        `
+          mutation {
+            editProfile(input:{
+              email: "${NEW_EMAIL}",
+            }) {
+              ok
+              error
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: {
+                editProfile: { ok, error },
+              },
+            },
+          } = res;
+          expect(ok).toBe(true);
+          expect(error).toBe(null);
+        });
+    });
+
+    it('should have new email', () => {
+      return graphQLQuery(
+        `
+          {
+            me {
+              email
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: {
+                me: { email },
+              },
+            },
+          } = res;
+          expect(email).toBe(NEW_EMAIL);
+        });
+    });
+
+    it('should have switched verified to false', () => {
+      return graphQLQuery(
+        `
+          {
+            me {
+              verified
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: {
+                me: { verified },
+              },
+            },
+          } = res;
+          expect(verified).toBe(false);
+        });
+    });
+
+    it('should change password', () => {
+      return graphQLQuery(
+        `
+          mutation {
+            editProfile(input:{
+              password: "${NEW_PASSWORD}",
+            }) {
+              ok
+              error
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: {
+                editProfile: { ok, error },
+              },
+            },
+          } = res;
+          expect(ok).toBe(true);
+          expect(error).toBe(null);
+        });
+    });
+
+    it('should be able to log in with new email & new password', () => {
+      return graphQLQuery(`
+        mutation {
+          login(input:{
+            email:"${NEW_EMAIL}",
+            password:"${NEW_PASSWORD}"
+          }) {
+            ok
+            error
+            token
+          }
+        }
+      `)
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: {
+              data: { login },
+            },
+          } = res;
+          expect(login.ok).toBe(true);
+          expect(login.error).toBe(null);
+          expect(login.token).toEqual(expect.any(String));
+          jwtToken = login.token;
+        });
+    });
+  });
 
   it.todo('deleteMyAccount');
 });
