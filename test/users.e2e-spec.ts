@@ -364,7 +364,7 @@ describe('UserModule (E2E)', () => {
         });
     });
 
-    it('should fail on verification code not found', () => {
+    it('should fail if verification code is invalid', () => {
       return graphQLQuery(
         `
           mutation {
@@ -528,5 +528,56 @@ describe('UserModule (E2E)', () => {
     });
   });
 
-  it.todo('deleteMyAccount');
+  describe('deleteMyAccount', () => {
+    it('should deny logged out user', () => {
+      return graphQLQuery(
+        `
+          mutation {
+            deleteMyAccount {
+              ok
+              error
+            }
+          }
+        `,
+        invalidValue,
+      )
+        .expect(200)
+        .expect((res) => {
+          const {
+            body: { data },
+          } = res;
+          expect(res.body.errors).toEqual(expect.any(Object));
+          expect(data).toBe(null);
+        });
+    });
+
+    it('should delete my account', () => {
+      return graphQLQuery(
+        `
+          mutation {
+            deleteMyAccount {
+              ok
+              error
+            }
+          }
+        `,
+        jwtToken,
+      )
+        .expect(200)
+        .expect(async (res) => {
+          const {
+            body: {
+              data: {
+                deleteMyAccount: { ok, error },
+              },
+            },
+          } = res;
+          expect(ok).toBe(true);
+          expect(error).toBe(null);
+
+          const users = await usersRepository.find();
+          expect(users.length).toBe(0);
+        });
+    });
+  });
 });
