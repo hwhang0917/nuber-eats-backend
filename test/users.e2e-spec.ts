@@ -6,11 +6,9 @@ import { getConnection, Repository } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Verification } from 'src/users/entities/verification.entity';
+import { testUsers } from './users.mock';
 
-const testUser = {
-  email: 'test@test.com',
-  password: 'test',
-};
+const testUser = testUsers.admin;
 
 jest.mock('got', () => {
   return {
@@ -58,7 +56,7 @@ describe('UserModule (E2E)', () => {
             createAccount(input:{
               email:"${testUser.email}",
               password:"${testUser.password}",
-              role:Admin
+              role:${testUser.role}
             }) {
               ok
               error
