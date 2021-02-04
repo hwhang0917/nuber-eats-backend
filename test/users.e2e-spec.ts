@@ -1,11 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
+import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { AppModule } from '../src/app.module';
-import { getConnection, Repository } from 'typeorm';
-import { User } from 'src/users/entities/user.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { getConnection, Repository } from 'typeorm';
+import { AppModule } from '../src/app.module';
+import { User } from 'src/users/entities/user.entity';
 import { Verification } from 'src/users/entities/verification.entity';
+import { GRAPHQL_ENDPOINT } from './test.constant';
 import { testUsers } from './users.mock';
 
 const testUser = testUsers.admin;
@@ -15,8 +16,6 @@ jest.mock('got', () => {
     post: jest.fn(),
   };
 });
-
-const GRAPHQL_ENDPOINT = '/graphql';
 
 describe('UserModule (E2E)', () => {
   let app: INestApplication;
