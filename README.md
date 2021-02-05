@@ -9,13 +9,38 @@
 > This project is an Uber Eats clone practice project for backend, following lecture from [Nomad Coders](https://nomadcoders.co/)
 
 ## Models
+____
 
-### User Entity:
+#### Core Entity:
 
-- [ ] id
-- [ ] createdAt
-- [ ] updatedAt
+- [x] id
+- [x] createdAt
+- [x] updatedAt
 
-- [ ] email
-- [ ] password
-- [ ] role (client|owner|delivery)
+#### User Entity:
+
+- [x] email
+- [x] password
+- [x] role (client|owner|delivery|admin)
+- [x] verified
+- [x] restaurants (FK:Restaurant)
+
+#### Verification Entity:
+
+- [x] code
+- [x] user (FK:User)
+
+#### Restaurant Entity:
+
+- [x] name
+- [x] coverImage
+- [x] address
+- [x] category (FK:Category)
+- [x] owner (FK:User)
+
+#### Category Entity:
+
+- [x] name
+- [x] icon
+- [x] slug
+- [x] restaurants (FK:Restaurant)
