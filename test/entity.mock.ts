@@ -1,12 +1,19 @@
 import { UserRole } from 'src/users/entities/user.entity';
 
-export type TestUserType = {
+type TestUserType = {
   email: string;
   password: string;
   role: UserRole;
 };
 
-export const testUsers = {
+type TestUsersType = {
+  admin: TestUserType;
+  client: TestUserType;
+  owner: TestUserType;
+  delivery: TestUserType;
+};
+
+export const testUsers: TestUsersType = {
   admin: {
     email: 'admin@test.com',
     password: 'admin',

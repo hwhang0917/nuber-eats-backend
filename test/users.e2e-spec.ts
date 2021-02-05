@@ -7,7 +7,7 @@ import { AppModule } from '../src/app.module';
 import { User } from 'src/users/entities/user.entity';
 import { Verification } from 'src/users/entities/verification.entity';
 import { GRAPHQL_ENDPOINT } from './test.constant';
-import { testUsers } from './users.mock';
+import { testUsers } from './entity.mock';
 
 const testUser = testUsers.admin;
 
