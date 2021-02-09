@@ -1,8 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { getCustomRepositoryToken, getRepositoryToken } from '@nestjs/typeorm';
-import { User } from 'src/users/entities/user.entity';
+import { User, UserRole } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { CreateRestaurantInput } from './dtos/create-restaurant.dto';
+import { EditRestaurantInput } from './dtos/edit-restaurant.dto';
 import { Restaurant } from './entities/restaurant.entity';
 import { CategoryRepository } from './repositories/category.repository';
 import { RestaurantService } from './restaurants.service';
@@ -25,6 +26,19 @@ describe('Restaurants Service', () => {
   let service: RestaurantService;
   let restaurantsRepository: MockRepository<Restaurant>;
   let categoriesRepository: MockCategoryRepository;
+
+  const mockUser: User = {
+    id: 0,
+    createdAt: undefined,
+    updatedAt: undefined,
+    email: 'owner@test.com',
+    password: '1234',
+    role: UserRole.Owner,
+    verified: true,
+    restaurants: [],
+    hashPassword: jest.fn(),
+    checkPassword: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -58,7 +72,6 @@ describe('Restaurants Service', () => {
       coverImage: 'test.jpg',
       address: 'test',
     };
-    const mockUser: User = null;
 
     it('should create a new restaurant', async () => {
       const mockCategory = {
@@ -112,6 +125,88 @@ describe('Restaurants Service', () => {
   });
 
   describe('editRestaurant', () => {
-    it.todo('should edit restaurant');
+    const editRestaurantArgs: EditRestaurantInput = {
+      categoryName: 'Test Category',
+      name: 'test',
+      coverImage: 'test.jpg',
+      address: 'test',
+      restaurantId: 0,
+    };
+
+    it("should fail if restaurant doesn't exist", async () => {
+      restaurantsRepository.findOne.mockResolvedValue(undefined);
+      const result = await service.editRestaurant(mockUser, editRestaurantArgs);
+
+      expect(result).toEqual({ ok: false, error: 'Restaurant not found' });
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        editRestaurantArgs.restaurantId,
+        {
+          loadRelationIds: true,
+        },
+      );
+    });
+
+    it('should fail if user does not own the restaurnt', async () => {
+      restaurantsRepository.findOne.mockResolvedValue({ ownderId: 1 });
+      const result = await service.editRestaurant(mockUser, editRestaurantArgs);
+
+      expect(result).toEqual({
+        ok: false,
+        error: "You cannot edit restaurant you don't own",
+      });
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        editRestaurantArgs.restaurantId,
+        {
+          loadRelationIds: true,
+        },
+      );
+    });
+
+    it('should fail on exception', async () => {
+      restaurantsRepository.findOne.mockRejectedValue(new Error());
+      const result = await service.editRestaurant(mockUser, editRestaurantArgs);
+
+      expect(result).toEqual({ ok: false, error: 'Could not edit restaurant' });
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        editRestaurantArgs.restaurantId,
+        {
+          loadRelationIds: true,
+        },
+      );
+    });
+
+    it('should edit restaurant', async () => {
+      const mockCategory = {
+        name: editRestaurantArgs.categoryName,
+        slug: 'test-category',
+      };
+      restaurantsRepository.findOne.mockResolvedValue({ ownerId: mockUser.id });
+      categoriesRepository.getOrCreate.mockResolvedValue(mockCategory);
+      const result = await service.editRestaurant(mockUser, editRestaurantArgs);
+
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        editRestaurantArgs.restaurantId,
+        {
+          loadRelationIds: true,
+        },
+      );
+      expect(categoriesRepository.getOrCreate).toHaveBeenCalled();
+      expect(categoriesRepository.getOrCreate).toHaveBeenCalledWith(
+        editRestaurantArgs.categoryName,
+      );
+      expect(restaurantsRepository.save).toHaveBeenCalled();
+      expect(restaurantsRepository.save).toHaveBeenCalledWith([
+        {
+          id: editRestaurantArgs.restaurantId,
+          ...editRestaurantArgs,
+          ...{ category: mockCategory },
+        },
+      ]);
+      expect(result).toEqual({ ok: true });
+    });
   });
 });
