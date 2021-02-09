@@ -59,6 +59,12 @@ export class UsersResolver {
     return this.usersService.deleteUser(authUser.id);
   }
 
+  @Mutation((returns) => DeleteAccountOutput)
+  @Role(['Admin'])
+  deleteAccount(@Args('id') id: number): Promise<DeleteAccountOutput> {
+    return this.usersService.deleteUser(id);
+  }
+
   @Mutation((returns) => VerifyEmailOutput)
   verifyEmail(
     @Args('input') { code }: VerifyEmailInput,

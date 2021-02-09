@@ -289,6 +289,12 @@ describe('UserService', () => {
       expect(result).toEqual({ ok: true });
     });
 
+    it('should fail if user does not exist', async () => {
+      usersRepository.findOne.mockResolvedValue(undefined);
+      const result = await service.deleteUser(deleteUserArg.userId);
+      expect(result).toEqual({ ok: false, error: 'User not found' });
+    });
+
     it('should fail on exception', async () => {
       usersRepository.findOne.mockRejectedValue(new Error());
       const result = await service.deleteUser(deleteUserArg.userId);

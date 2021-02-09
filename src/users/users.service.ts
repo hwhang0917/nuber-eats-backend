@@ -113,6 +113,9 @@ export class UserService {
   async deleteUser(userId: number): Promise<DeleteAccountOutput> {
     try {
       const user = await this.users.findOne(userId);
+      if (!user) {
+        return { ok: false, error: 'User not found' };
+      }
       await this.users.remove(user);
       return { ok: true };
     } catch (error) {
