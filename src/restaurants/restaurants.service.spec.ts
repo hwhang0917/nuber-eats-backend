@@ -209,4 +209,75 @@ describe('Restaurants Service', () => {
       expect(result).toEqual({ ok: true });
     });
   });
+
+  describe('deleteRestaurant', () => {
+    const deleteRestaurantInput = { restaurantId: 0 };
+
+    it("should fail if restaurant doesn't exist", async () => {
+      restaurantsRepository.findOne.mockResolvedValue(undefined);
+      const result = await service.deleteRestaurant(
+        mockUser,
+        deleteRestaurantInput,
+      );
+
+      expect(result).toEqual({ ok: false, error: 'Restaurant not found' });
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        deleteRestaurantInput.restaurantId,
+      );
+    });
+
+    it('should fail if user does not own the restaurnt', async () => {
+      restaurantsRepository.findOne.mockResolvedValue({ ownerId: 1 });
+      const result = await service.deleteRestaurant(
+        mockUser,
+        deleteRestaurantInput,
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        error: "You cannot delete restaurant you don't own",
+      });
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        deleteRestaurantInput.restaurantId,
+      );
+    });
+
+    it('should fail on exception', async () => {
+      restaurantsRepository.findOne.mockRejectedValue(new Error());
+      const result = await service.deleteRestaurant(
+        mockUser,
+        deleteRestaurantInput,
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        error: 'Could not delete restaurant',
+      });
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        deleteRestaurantInput.restaurantId,
+      );
+    });
+
+    it('should delete restaurant', async () => {
+      const mockRestaurant = { ownerId: mockUser.id };
+
+      restaurantsRepository.findOne.mockResolvedValue(mockRestaurant);
+      restaurantsRepository.remove.mockResolvedValue(true);
+      const result = await service.deleteRestaurant(
+        mockUser,
+        deleteRestaurantInput,
+      );
+
+      expect(result).toEqual({ ok: true });
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        deleteRestaurantInput.restaurantId,
+      );
+      expect(restaurantsRepository.remove).toHaveBeenCalled();
+      expect(restaurantsRepository.remove).toHaveBeenCalledWith(mockRestaurant);
+    });
+  });
 });
