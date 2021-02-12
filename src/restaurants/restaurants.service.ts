@@ -144,4 +144,8 @@ export class RestaurantService {
       };
     }
   }
+
+  countRestaurants(category: Category): Promise<number> {
+    return this.restaurants.count({ category });
+  }
 }
