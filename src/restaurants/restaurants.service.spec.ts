@@ -1,3 +1,4 @@
+import * as faker from 'faker';
 import { Test } from '@nestjs/testing';
 import { getCustomRepositoryToken, getRepositoryToken } from '@nestjs/typeorm';
 import { User, UserRole } from 'src/users/entities/user.entity';
@@ -7,14 +8,17 @@ import { EditRestaurantInput } from './dtos/edit-restaurant.dto';
 import { Restaurant } from './entities/restaurant.entity';
 import { CategoryRepository } from './repositories/category.repository';
 import { RestaurantService } from './restaurants.service';
+import { Category } from './entities/category.entity';
 
 const mockRepository = () => ({
+  find: jest.fn(),
   findOne: jest.fn(),
   findOneOrFail: jest.fn(),
   save: jest.fn(),
   create: jest.fn(),
   remove: jest.fn(),
   delete: jest.fn(),
+  count: jest.fn(),
 });
 
 type MockRepository<T = any> = Partial<Record<keyof Repository<T>, jest.Mock>>;
@@ -29,15 +33,37 @@ describe('Restaurants Service', () => {
 
   const mockUser: User = {
     id: 0,
-    createdAt: undefined,
-    updatedAt: undefined,
-    email: 'owner@test.com',
-    password: '1234',
+    createdAt: faker.date.recent(),
+    updatedAt: faker.date.recent(),
+    email: faker.internet.email(),
+    password: faker.internet.password(),
     role: UserRole.Owner,
     verified: true,
     restaurants: [],
     hashPassword: jest.fn(),
     checkPassword: jest.fn(),
+  };
+
+  const mockCategory: Category = {
+    id: 0,
+    createdAt: faker.date.recent(),
+    updatedAt: faker.date.recent(),
+    name: faker.lorem.words(),
+    icon: faker.image.food(),
+    slug: faker.lorem.slug(),
+    restaurants: [],
+  };
+
+  const mockRestaurant: Restaurant = {
+    id: 0,
+    createdAt: faker.date.recent(),
+    updatedAt: faker.date.recent(),
+    name: faker.company.companyName(),
+    coverImage: faker.image.business(),
+    address: faker.address.city(),
+    category: mockCategory,
+    owner: mockUser,
+    ownerId: mockUser.id,
   };
 
   beforeEach(async () => {
@@ -50,7 +76,10 @@ describe('Restaurants Service', () => {
         },
         {
           provide: getCustomRepositoryToken(CategoryRepository),
-          useValue: { ...mockRepository(), getOrCreate: jest.fn() },
+          useValue: {
+            ...mockRepository(),
+            getOrCreate: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -67,19 +96,13 @@ describe('Restaurants Service', () => {
 
   describe('createRestaruant', () => {
     const createRestaurantArgs: CreateRestaurantInput = {
-      categoryName: 'Test Category',
-      name: 'test',
-      coverImage: 'test.jpg',
-      address: 'test',
+      categoryName: mockCategory.name,
+      name: mockRestaurant.name,
+      coverImage: mockRestaurant.coverImage,
+      address: mockRestaurant.address,
     };
 
     it('should create a new restaurant', async () => {
-      const mockCategory = {
-        name: createRestaurantArgs.categoryName,
-        icon: 'test.jpg',
-        slug: 'test-category',
-      };
-
       const mockNewRestaurant = {
         ...createRestaurantArgs,
         ownerId: 0,
@@ -278,6 +301,102 @@ describe('Restaurants Service', () => {
       );
       expect(restaurantsRepository.remove).toHaveBeenCalled();
       expect(restaurantsRepository.remove).toHaveBeenCalledWith(mockRestaurant);
+    });
+  });
+
+  describe('allCategories', () => {
+    it('should fail on exception', async () => {
+      categoriesRepository.find.mockRejectedValue(new Error('ee'));
+      const result = await service.allCategories();
+
+      expect(categoriesRepository.find).toHaveBeenCalled();
+      expect(result).toEqual({
+        ok: false,
+        error: 'Could not load categories',
+      });
+    });
+
+    it('should find list of all categories', async () => {
+      const mockCategories = ['test1', 'test2'];
+
+      categoriesRepository.find.mockResolvedValue(mockCategories);
+      const result = await service.allCategories();
+
+      expect(categoriesRepository.find).toHaveBeenCalled();
+      expect(result).toEqual({
+        ok: true,
+        categories: mockCategories,
+      });
+    });
+  });
+
+  describe('countRestaurants', () => {
+    it('should get number of restaurant counts', async () => {
+      const mockRestaurantCount = 10;
+
+      restaurantsRepository.count.mockResolvedValue(mockRestaurantCount);
+      const result = await service.countRestaurants(mockCategory);
+
+      expect(restaurantsRepository.count).toHaveBeenCalled();
+      expect(restaurantsRepository.count).toHaveBeenCalledWith({
+        category: mockCategory,
+      });
+      expect(result).toEqual(mockRestaurantCount);
+    });
+  });
+
+  describe('findCategoryBySlug', () => {
+    const findCategoryBySlugArg = { slug: mockCategory.slug };
+
+    it("should fail if category doesn't exist", async () => {
+      categoriesRepository.findOne.mockResolvedValue(undefined);
+      const result = await service.findCategoryBySlug(findCategoryBySlugArg);
+
+      expect(categoriesRepository.findOne).toHaveBeenCalled();
+      expect(categoriesRepository.findOne).toHaveBeenCalledWith(
+        findCategoryBySlugArg,
+        {
+          relations: ['restaurants'],
+        },
+      );
+      expect(result).toEqual({
+        ok: false,
+        error: 'Category not found',
+      });
+    });
+
+    it('should fail on exception', async () => {
+      categoriesRepository.findOne.mockRejectedValue(new Error());
+      const result = await service.findCategoryBySlug(findCategoryBySlugArg);
+
+      expect(categoriesRepository.findOne).toHaveBeenCalled();
+      expect(categoriesRepository.findOne).toHaveBeenCalledWith(
+        findCategoryBySlugArg,
+        {
+          relations: ['restaurants'],
+        },
+      );
+      expect(result).toEqual({
+        ok: false,
+        error: 'Could not find category',
+      });
+    });
+
+    it('should get category', async () => {
+      categoriesRepository.findOne.mockResolvedValue(mockCategory);
+      const result = await service.findCategoryBySlug(findCategoryBySlugArg);
+
+      expect(categoriesRepository.findOne).toHaveBeenCalled();
+      expect(categoriesRepository.findOne).toHaveBeenCalledWith(
+        findCategoryBySlugArg,
+        {
+          relations: ['restaurants'],
+        },
+      );
+      expect(result).toEqual({
+        ok: true,
+        category: mockCategory,
+      });
     });
   });
 });
