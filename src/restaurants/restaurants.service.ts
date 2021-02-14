@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PAGINATION_MAX } from 'src/common/dtos/pagination.dto';
 import { User } from 'src/users/entities/user.entity';
-import { Raw, Repository } from 'typeorm';
 import { AllCategoriesOutput } from './dtos/all-categories.dto';
 import { CategoryInput, CategoryOutput } from './dtos/category.dto';
 import {
@@ -25,14 +25,13 @@ import {
 import { Category } from './entities/category.entity';
 import { Restaurant } from './entities/restaurant.entity';
 import { CategoryRepository } from './repositories/category.repository';
-
-const PAGINATION_MAX = 25;
+import { RestaurantRepository } from './repositories/restaurant.repository';
 
 @Injectable()
 export class RestaurantService {
   constructor(
     @InjectRepository(Restaurant)
-    private readonly restaurants: Repository<Restaurant>,
+    private readonly restaurants: RestaurantRepository,
     private readonly categories: CategoryRepository,
   ) {}
 
@@ -172,11 +171,10 @@ export class RestaurantService {
         };
       }
 
-      const restaurants = await this.restaurants.find({
-        where: { category },
-        take: PAGINATION_MAX,
-        skip: (page - 1) * PAGINATION_MAX,
-      });
+      const restaurants = await this.restaurants.getRestaurantsByCategory(
+        category,
+        page,
+      );
       category.restaurants = restaurants;
       const totalResults = await this.countRestaurants(category);
 
@@ -195,10 +193,10 @@ export class RestaurantService {
 
   async allRestaurants({ page }: RestaurantsInput): Promise<RestaurantsOutput> {
     try {
-      const [restaurants, totalResults] = await this.restaurants.findAndCount({
-        skip: (page - 1) * PAGINATION_MAX,
-        take: PAGINATION_MAX,
-      });
+      const [
+        restaurants,
+        totalResults,
+      ] = await this.restaurants.getRestaurantsByPage(page);
       return {
         ok: true,
         results: restaurants,
@@ -241,11 +239,10 @@ export class RestaurantService {
     page,
   }: SearchRestaurantInput): Promise<SearchRestaurantOutput> {
     try {
-      const [restaurants, totalResults] = await this.restaurants.findAndCount({
-        where: { name: Raw((name) => `${name} ILIKE '%${query}%'`) },
-        skip: (page - 1) * PAGINATION_MAX,
-        take: PAGINATION_MAX,
-      });
+      const [
+        restaurants,
+        totalResults,
+      ] = await this.restaurants.getRestaurantsByQuery(query, page);
 
       return {
         ok: true,
