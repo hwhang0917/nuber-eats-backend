@@ -2,13 +2,14 @@ import * as faker from 'faker';
 import { Test } from '@nestjs/testing';
 import { getCustomRepositoryToken, getRepositoryToken } from '@nestjs/typeorm';
 import { User, UserRole } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
 import { CreateRestaurantInput } from './dtos/create-restaurant.dto';
 import { EditRestaurantInput } from './dtos/edit-restaurant.dto';
 import { Restaurant } from './entities/restaurant.entity';
 import { CategoryRepository } from './repositories/category.repository';
 import { RestaurantService } from './restaurants.service';
 import { Category } from './entities/category.entity';
+import { PAGINATION_MAX } from 'src/common/dtos/pagination.dto';
+import { RestaurantRepository } from './repositories/restaurant.repository';
 
 const mockRepository = () => ({
   find: jest.fn(),
@@ -22,17 +23,17 @@ const mockRepository = () => ({
   count: jest.fn(),
 });
 
-type MockRepository<T = any> = Partial<Record<keyof Repository<T>, jest.Mock>>;
+type MockRestaurantRepository = Partial<
+  Record<keyof RestaurantRepository, jest.Mock>
+>;
 type MockCategoryRepository = Partial<
   Record<keyof CategoryRepository, jest.Mock>
 >;
 
 describe('Restaurants Service', () => {
   let service: RestaurantService;
-  let restaurantsRepository: MockRepository<Restaurant>;
+  let restaurantsRepository: MockRestaurantRepository;
   let categoriesRepository: MockCategoryRepository;
-
-  const PAGINATION_MAX = 25;
 
   const mockUser: User = {
     id: 0,
@@ -69,13 +70,20 @@ describe('Restaurants Service', () => {
     ownerId: mockUser.id,
   };
 
+  const mockRestaurants = ['restaurantA', 'restaurantB', 'restaurantC'];
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
         RestaurantService,
         {
-          provide: getRepositoryToken(Restaurant),
-          useValue: mockRepository(),
+          provide: getRepositoryToken(RestaurantRepository),
+          useValue: {
+            ...mockRepository(),
+            getRestaurantsByCategory: jest.fn(),
+            getRestaurantsByPage: jest.fn(),
+            getRestaurantsByQuery: jest.fn(),
+          },
         },
         {
           provide: getCustomRepositoryToken(CategoryRepository),
@@ -413,19 +421,17 @@ describe('Restaurants Service', () => {
       countRestaurantsSpy.mockResolvedValue(mockPageCount);
 
       categoriesRepository.findOne.mockResolvedValue(mockCategory);
-      restaurantsRepository.find.mockResolvedValue([]);
+      restaurantsRepository.getRestaurantsByCategory.mockResolvedValue([]);
       const result = await service.findCategoryBySlug(findCategoryBySlugArg);
 
       expect(categoriesRepository.findOne).toHaveBeenCalled();
       expect(categoriesRepository.findOne).toHaveBeenCalledWith({
         slug: findCategoryBySlugArg.slug,
       });
-      expect(restaurantsRepository.find).toHaveBeenCalled();
-      expect(restaurantsRepository.find).toHaveBeenCalledWith({
-        where: { category: mockCategory },
-        take: PAGINATION_MAX,
-        skip: (findCategoryBySlugArg.page - 1) * PAGINATION_MAX,
-      });
+      expect(restaurantsRepository.getRestaurantsByCategory).toHaveBeenCalled();
+      expect(
+        restaurantsRepository.getRestaurantsByCategory,
+      ).toHaveBeenCalledWith(mockCategory, findCategoryBySlugArg.page);
       expect(countRestaurantsSpy).toHaveBeenCalled();
       expect(countRestaurantsSpy).toHaveBeenCalledWith(mockCategory);
       expect(result).toEqual({
@@ -440,14 +446,13 @@ describe('Restaurants Service', () => {
     const allRestaurantsArgs = { page: 1 };
 
     it('should fail on exception', async () => {
-      restaurantsRepository.findAndCount.mockRejectedValue(new Error());
+      restaurantsRepository.getRestaurantsByPage.mockRejectedValue(new Error());
       const result = await service.allRestaurants(allRestaurantsArgs);
 
-      expect(restaurantsRepository.findAndCount).toHaveBeenCalled();
-      expect(restaurantsRepository.findAndCount).toHaveBeenCalledWith({
-        skip: (allRestaurantsArgs.page - 1) * PAGINATION_MAX,
-        take: PAGINATION_MAX,
-      });
+      expect(restaurantsRepository.getRestaurantsByPage).toHaveBeenCalled();
+      expect(restaurantsRepository.getRestaurantsByPage).toHaveBeenCalledWith(
+        allRestaurantsArgs.page,
+      );
       expect(result).toEqual({
         ok: false,
         error: 'Could not load restaurants',
@@ -455,18 +460,16 @@ describe('Restaurants Service', () => {
     });
 
     it('should get array of all restaurants', async () => {
-      const mockRestaurants = ['1', '2', '3,'];
-      restaurantsRepository.findAndCount.mockResolvedValue([
+      restaurantsRepository.getRestaurantsByPage.mockResolvedValue([
         mockRestaurants,
         mockRestaurants.length,
       ]);
       const result = await service.allRestaurants(allRestaurantsArgs);
 
-      expect(restaurantsRepository.findAndCount).toHaveBeenCalled();
-      expect(restaurantsRepository.findAndCount).toHaveBeenCalledWith({
-        skip: (allRestaurantsArgs.page - 1) * PAGINATION_MAX,
-        take: PAGINATION_MAX,
-      });
+      expect(restaurantsRepository.getRestaurantsByPage).toHaveBeenCalled();
+      expect(restaurantsRepository.getRestaurantsByPage).toHaveBeenCalledWith(
+        allRestaurantsArgs.page,
+      );
       expect(result).toEqual({
         ok: true,
         results: mockRestaurants,
@@ -518,6 +521,54 @@ describe('Restaurants Service', () => {
       expect(result).toEqual({
         ok: true,
         restaurant: mockRestaurant,
+      });
+    });
+  });
+
+  describe('searchRestaurantByName', () => {
+    const searchRestaurantByNameArgs = {
+      query: 'test',
+      page: 1,
+    };
+
+    it('should fail on exception', async () => {
+      restaurantsRepository.getRestaurantsByQuery.mockRejectedValue(
+        new Error(),
+      );
+      const result = await service.searchRestaurantByName(
+        searchRestaurantByNameArgs,
+      );
+
+      expect(restaurantsRepository.getRestaurantsByQuery).toHaveBeenCalled();
+      expect(restaurantsRepository.getRestaurantsByQuery).toHaveBeenCalledWith(
+        searchRestaurantByNameArgs.query,
+        searchRestaurantByNameArgs.page,
+      );
+      expect(result).toEqual({
+        ok: false,
+        error: 'Could not search for restaurant',
+      });
+    });
+
+    it('should search and get restaurant by name', async () => {
+      restaurantsRepository.getRestaurantsByQuery.mockResolvedValue([
+        mockRestaurants,
+        mockRestaurants.length,
+      ]);
+      const result = await service.searchRestaurantByName(
+        searchRestaurantByNameArgs,
+      );
+
+      expect(restaurantsRepository.getRestaurantsByQuery).toHaveBeenCalled();
+      expect(restaurantsRepository.getRestaurantsByQuery).toHaveBeenCalledWith(
+        searchRestaurantByNameArgs.query,
+        searchRestaurantByNameArgs.page,
+      );
+      expect(result).toEqual({
+        ok: true,
+        restaurants: mockRestaurants,
+        totalResults: mockRestaurants.length,
+        totalPages: Math.ceil(mockRestaurants.length / PAGINATION_MAX),
       });
     });
   });
