@@ -12,6 +12,7 @@ import { Category } from './entities/category.entity';
 
 const mockRepository = () => ({
   find: jest.fn(),
+  findAndCount: jest.fn(),
   findOne: jest.fn(),
   findOneOrFail: jest.fn(),
   save: jest.fn(),
@@ -30,6 +31,8 @@ describe('Restaurants Service', () => {
   let service: RestaurantService;
   let restaurantsRepository: MockRepository<Restaurant>;
   let categoriesRepository: MockCategoryRepository;
+
+  const PAGINATION_MAX = 25;
 
   const mockUser: User = {
     id: 0,
@@ -149,7 +152,6 @@ describe('Restaurants Service', () => {
 
   describe('editRestaurant', () => {
     const editRestaurantArgs: EditRestaurantInput = {
-      categoryName: 'Test Category',
       name: 'test',
       coverImage: 'test.jpg',
       address: 'test',
@@ -201,13 +203,8 @@ describe('Restaurants Service', () => {
       );
     });
 
-    it('should edit restaurant', async () => {
-      const mockCategory = {
-        name: editRestaurantArgs.categoryName,
-        slug: 'test-category',
-      };
+    it('should edit restaurant without categoryName', async () => {
       restaurantsRepository.findOne.mockResolvedValue({ ownerId: mockUser.id });
-      categoriesRepository.getOrCreate.mockResolvedValue(mockCategory);
       const result = await service.editRestaurant(mockUser, editRestaurantArgs);
 
       expect(restaurantsRepository.findOne).toHaveBeenCalled();
@@ -217,15 +214,49 @@ describe('Restaurants Service', () => {
           loadRelationIds: true,
         },
       );
-      expect(categoriesRepository.getOrCreate).toHaveBeenCalled();
-      expect(categoriesRepository.getOrCreate).toHaveBeenCalledWith(
-        editRestaurantArgs.categoryName,
-      );
       expect(restaurantsRepository.save).toHaveBeenCalled();
       expect(restaurantsRepository.save).toHaveBeenCalledWith([
         {
           id: editRestaurantArgs.restaurantId,
           ...editRestaurantArgs,
+        },
+      ]);
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('should edit restaurant with categoryName', async () => {
+      const editRestaurantArgsWithCategory = {
+        ...editRestaurantArgs,
+        categoryName: 'Test Category',
+      };
+      const mockCategory = {
+        name: editRestaurantArgsWithCategory.categoryName,
+        slug: 'test-category',
+      };
+
+      restaurantsRepository.findOne.mockResolvedValue({ ownerId: mockUser.id });
+      categoriesRepository.getOrCreate.mockResolvedValue(mockCategory);
+      const result = await service.editRestaurant(
+        mockUser,
+        editRestaurantArgsWithCategory,
+      );
+
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith(
+        editRestaurantArgsWithCategory.restaurantId,
+        {
+          loadRelationIds: true,
+        },
+      );
+      expect(categoriesRepository.getOrCreate).toHaveBeenCalled();
+      expect(categoriesRepository.getOrCreate).toHaveBeenCalledWith(
+        editRestaurantArgsWithCategory.categoryName,
+      );
+      expect(restaurantsRepository.save).toHaveBeenCalled();
+      expect(restaurantsRepository.save).toHaveBeenCalledWith([
+        {
+          id: editRestaurantArgsWithCategory.restaurantId,
+          ...editRestaurantArgsWithCategory,
           ...{ category: mockCategory },
         },
       ]);
@@ -346,19 +377,16 @@ describe('Restaurants Service', () => {
   });
 
   describe('findCategoryBySlug', () => {
-    const findCategoryBySlugArg = { slug: mockCategory.slug };
+    const findCategoryBySlugArg = { slug: mockCategory.slug, page: 1 };
 
     it("should fail if category doesn't exist", async () => {
       categoriesRepository.findOne.mockResolvedValue(undefined);
       const result = await service.findCategoryBySlug(findCategoryBySlugArg);
 
       expect(categoriesRepository.findOne).toHaveBeenCalled();
-      expect(categoriesRepository.findOne).toHaveBeenCalledWith(
-        findCategoryBySlugArg,
-        {
-          relations: ['restaurants'],
-        },
-      );
+      expect(categoriesRepository.findOne).toHaveBeenCalledWith({
+        slug: findCategoryBySlugArg.slug,
+      });
       expect(result).toEqual({
         ok: false,
         error: 'Category not found',
@@ -370,12 +398,9 @@ describe('Restaurants Service', () => {
       const result = await service.findCategoryBySlug(findCategoryBySlugArg);
 
       expect(categoriesRepository.findOne).toHaveBeenCalled();
-      expect(categoriesRepository.findOne).toHaveBeenCalledWith(
-        findCategoryBySlugArg,
-        {
-          relations: ['restaurants'],
-        },
-      );
+      expect(categoriesRepository.findOne).toHaveBeenCalledWith({
+        slug: findCategoryBySlugArg.slug,
+      });
       expect(result).toEqual({
         ok: false,
         error: 'Could not find category',
@@ -383,19 +408,116 @@ describe('Restaurants Service', () => {
     });
 
     it('should get category', async () => {
+      const mockPageCount = 5;
+      const countRestaurantsSpy = jest.spyOn(service, 'countRestaurants');
+      countRestaurantsSpy.mockResolvedValue(mockPageCount);
+
       categoriesRepository.findOne.mockResolvedValue(mockCategory);
+      restaurantsRepository.find.mockResolvedValue([]);
       const result = await service.findCategoryBySlug(findCategoryBySlugArg);
 
       expect(categoriesRepository.findOne).toHaveBeenCalled();
-      expect(categoriesRepository.findOne).toHaveBeenCalledWith(
-        findCategoryBySlugArg,
-        {
-          relations: ['restaurants'],
-        },
-      );
+      expect(categoriesRepository.findOne).toHaveBeenCalledWith({
+        slug: findCategoryBySlugArg.slug,
+      });
+      expect(restaurantsRepository.find).toHaveBeenCalled();
+      expect(restaurantsRepository.find).toHaveBeenCalledWith({
+        where: { category: mockCategory },
+        take: PAGINATION_MAX,
+        skip: (findCategoryBySlugArg.page - 1) * PAGINATION_MAX,
+      });
+      expect(countRestaurantsSpy).toHaveBeenCalled();
+      expect(countRestaurantsSpy).toHaveBeenCalledWith(mockCategory);
       expect(result).toEqual({
         ok: true,
         category: mockCategory,
+        totalPages: Math.ceil(mockPageCount / PAGINATION_MAX),
+      });
+    });
+  });
+
+  describe('allRestaurants', () => {
+    const allRestaurantsArgs = { page: 1 };
+
+    it('should fail on exception', async () => {
+      restaurantsRepository.findAndCount.mockRejectedValue(new Error());
+      const result = await service.allRestaurants(allRestaurantsArgs);
+
+      expect(restaurantsRepository.findAndCount).toHaveBeenCalled();
+      expect(restaurantsRepository.findAndCount).toHaveBeenCalledWith({
+        skip: (allRestaurantsArgs.page - 1) * PAGINATION_MAX,
+        take: PAGINATION_MAX,
+      });
+      expect(result).toEqual({
+        ok: false,
+        error: 'Could not load restaurants',
+      });
+    });
+
+    it('should get array of all restaurants', async () => {
+      const mockRestaurants = ['1', '2', '3,'];
+      restaurantsRepository.findAndCount.mockResolvedValue([
+        mockRestaurants,
+        mockRestaurants.length,
+      ]);
+      const result = await service.allRestaurants(allRestaurantsArgs);
+
+      expect(restaurantsRepository.findAndCount).toHaveBeenCalled();
+      expect(restaurantsRepository.findAndCount).toHaveBeenCalledWith({
+        skip: (allRestaurantsArgs.page - 1) * PAGINATION_MAX,
+        take: PAGINATION_MAX,
+      });
+      expect(result).toEqual({
+        ok: true,
+        results: mockRestaurants,
+        totalPages: Math.ceil(mockRestaurants.length / PAGINATION_MAX),
+        totalResults: mockRestaurants.length,
+      });
+    });
+  });
+
+  describe('findRestaurantById', () => {
+    const findRestaurantByIdArgs = { restaurantId: 0 };
+
+    it("should fail if restaurant doesn't exist", async () => {
+      restaurantsRepository.findOne.mockResolvedValue(undefined);
+      const result = await service.findRestaurantById(findRestaurantByIdArgs);
+
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith({
+        id: findRestaurantByIdArgs.restaurantId,
+      });
+      expect(result).toEqual({
+        ok: false,
+        error: 'Restaurant not found',
+      });
+    });
+
+    it('should fail on exception', async () => {
+      restaurantsRepository.findOne.mockRejectedValue(new Error());
+      const result = await service.findRestaurantById(findRestaurantByIdArgs);
+
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith({
+        id: findRestaurantByIdArgs.restaurantId,
+      });
+      expect(result).toEqual({
+        ok: false,
+        error: 'Could not find restaurant',
+      });
+    });
+
+    it('should get restaurant by Id', async () => {
+      restaurantsRepository.findOne.mockResolvedValue(mockRestaurant);
+      const result = await service.findRestaurantById(findRestaurantByIdArgs);
+
+      expect(restaurantsRepository.findOne).toHaveBeenCalled();
+      expect(restaurantsRepository.findOne).toHaveBeenCalledWith({
+        id: findRestaurantByIdArgs.restaurantId,
+      });
+      expect(result).toEqual({
+        ok: true,
+        restaurant: mockRestaurant,
       });
     });
   });
