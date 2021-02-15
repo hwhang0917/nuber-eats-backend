@@ -1,8 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Field, InputType, Int, ObjectType } from '@nestjs/graphql';
 import { CoreOutput } from './output.dto';
-
-export const PAGINATION_MAX = 25;
 
 @InputType()
 export class PaginationInput {

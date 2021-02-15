@@ -8,7 +8,7 @@ import { Restaurant } from './entities/restaurant.entity';
 import { CategoryRepository } from './repositories/category.repository';
 import { RestaurantService } from './restaurants.service';
 import { Category } from './entities/category.entity';
-import { PAGINATION_MAX } from 'src/common/dtos/pagination.dto';
+import { PAGINATION_MAX } from 'src/common/common.constants';
 import { RestaurantRepository } from './repositories/restaurant.repository';
 
 const mockRepository = () => ({
@@ -68,6 +68,7 @@ describe('Restaurants Service', () => {
     category: mockCategory,
     owner: mockUser,
     ownerId: mockUser.id,
+    menu: [],
   };
 
   const mockRestaurants = ['restaurantA', 'restaurantB', 'restaurantC'];
