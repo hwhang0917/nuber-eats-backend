@@ -1,7 +1,7 @@
 import { EntityRepository, Raw, Repository } from 'typeorm';
 import { Category } from '../entities/category.entity';
 import { Restaurant } from '../entities/restaurant.entity';
-import { PAGINATION_MAX } from 'src/common/dtos/pagination.dto';
+import { PAGINATION_MAX } from 'src/common/common.constants';
 
 @EntityRepository(Restaurant)
 export class RestaurantRepository extends Repository<Restaurant> {

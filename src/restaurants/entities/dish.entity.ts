@@ -10,11 +10,11 @@ class DishOption {
   @Field((type) => String)
   name: string;
 
-  @Field((type) => String)
-  choices: string[];
+  @Field((type) => [String], { nullable: true })
+  choices?: string[];
 
-  @Field((type) => Int)
-  extra: number;
+  @Field((type) => Int, { nullable: true })
+  extra?: number;
 }
 
 @InputType('DishInputType', { isAbstract: true })
@@ -43,16 +43,17 @@ export class Dish extends CoreEntity {
   @Length(5, 140)
   description: string;
 
-  @Field((type) => Restaurant, { nullable: true })
+  @Field((type) => Restaurant)
   @ManyToOne((type) => Restaurant, (restaurant) => restaurant.menu, {
     onDelete: 'CASCADE',
+    nullable: false,
   })
   restaurant: Restaurant;
 
   @RelationId((dish: Dish) => dish.restaurant)
   restaurantId: number;
 
-  @Field((type) => [DishOption])
-  @Column({ type: 'json' })
-  options: DishOption[];
+  @Field((type) => [DishOption], { nullable: true })
+  @Column({ type: 'json', nullable: true })
+  options?: DishOption[];
 }
