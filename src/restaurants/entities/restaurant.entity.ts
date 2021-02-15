@@ -13,7 +13,6 @@ export class Restaurant extends CoreEntity {
   @Field((type) => String)
   @Column()
   @IsString()
-  @Length(5)
   name: string;
 
   @Field((type) => String)
