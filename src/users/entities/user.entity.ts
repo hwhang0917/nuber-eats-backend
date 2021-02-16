@@ -24,23 +24,23 @@ registerEnumType(UserRole, { name: 'UserRole' });
 @ObjectType()
 @Entity()
 export class User extends CoreEntity {
-  @Column({ unique: true })
   @Field((type) => String)
+  @Column({ unique: true })
   @IsEmail()
   email: string;
 
-  @Column({ select: false })
   @Field((type) => String)
+  @Column({ select: false })
   @IsString()
   password: string;
 
-  @Column({ type: 'enum', enum: UserRole })
   @Field((type) => UserRole)
+  @Column({ type: 'enum', enum: UserRole })
   @IsEnum(UserRole)
   role: UserRole;
 
-  @Column({ default: false })
   @Field((type) => Boolean)
+  @Column({ default: false })
   @IsBoolean()
   verified: boolean;
 
