@@ -6,7 +6,7 @@ import {
   CreateAccountOutput,
 } from './dtos/create-account.dto';
 import { LoginInput, LoginOutput } from './dtos/login.dto';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 import { JwtService } from 'src/jwt/jwt.service';
 import { EditProfileInput, EditProfileOutput } from './dtos/edit-profile.dto';
 import { Verification } from './entities/verification.entity';
@@ -25,12 +25,16 @@ export class UserService {
     private readonly mailService: MailService,
   ) {}
 
-  async createAccount({
-    email,
-    password,
-    role,
-  }: CreateAccountInput): Promise<CreateAccountOutput> {
+  async createAccount(
+    authUser: User,
+    { email, password, role }: CreateAccountInput,
+  ): Promise<CreateAccountOutput> {
     try {
+      if (role === UserRole.Admin) {
+        if (!authUser || authUser.role !== UserRole.Admin)
+          return { ok: false, error: 'Only Admin can create admin account' };
+      }
+
       const exists = await this.users.findOne({ email });
       if (exists) {
         return { ok: false, error: 'There is a user with that email already' };

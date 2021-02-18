@@ -19,9 +19,10 @@ export class UsersResolver {
 
   @Mutation((returns) => CreateAccountOutput)
   createAccount(
+    @AuthUser() authUser: User,
     @Args('input') createAccountInput: CreateAccountInput,
   ): Promise<CreateAccountOutput> {
-    return this.usersService.createAccount(createAccountInput);
+    return this.usersService.createAccount(authUser, createAccountInput);
   }
 
   @Mutation((returns) => LoginOutput)
