@@ -67,19 +67,21 @@ describe('UserService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('createAccount', () => {
+  describe('createAccount [non-Admin account]', () => {
     const createAccountArgs = {
       email: 'test@test.com',
       password: 'test.password',
-      role: UserRole.Admin,
+      role: UserRole.Client,
     };
+
+    const publicUser = undefined;
 
     it('should fail if user exists', async () => {
       usersRepository.findOne.mockResolvedValue({
         id: 1,
         email: 'test@test.com',
       });
-      const result = await service.createAccount(createAccountArgs);
+      const result = await service.createAccount(publicUser, createAccountArgs);
 
       expect(result).toMatchObject({
         ok: false,
@@ -97,7 +99,7 @@ describe('UserService', () => {
         code: 'code',
       });
 
-      const result = await service.createAccount(createAccountArgs);
+      const result = await service.createAccount(publicUser, createAccountArgs);
 
       expect(usersRepository.create).toHaveBeenCalled();
       expect(usersRepository.create).toHaveBeenCalledWith(createAccountArgs);
@@ -125,10 +127,114 @@ describe('UserService', () => {
 
     it('should fail on exception', async () => {
       usersRepository.findOne.mockRejectedValue(new Error());
-      const result = await service.createAccount(createAccountArgs);
+      const result = await service.createAccount(publicUser, createAccountArgs);
       expect(result).toEqual({ ok: false, error: 'Could not create account' });
     });
   });
+
+  describe('createAccount [Admin account]', () => {
+    const mockUser: User = {
+      id: 0,
+      createdAt: null,
+      updatedAt: null,
+      email: 'test@test.com',
+      password: 'test',
+      verified: true,
+      role: null,
+      restaurants: [],
+      orders: [],
+      rides: [],
+      hashPassword: jest.fn(),
+      checkPassword: jest.fn(),
+    };
+
+    const createAdminAccountArgs = {
+      email: 'admin@test.com',
+      password: 'admin',
+      role: UserRole.Admin,
+    };
+
+    const publicUser = undefined;
+    const unauthorizedUser: User = {
+      ...mockUser,
+      hashPassword: jest.fn(),
+      checkPassword: jest.fn(),
+      role: UserRole.Client,
+    };
+    const authorizedUSer: User = {
+      ...mockUser,
+      hashPassword: jest.fn(),
+      checkPassword: jest.fn(),
+      role: UserRole.Admin,
+    };
+
+    it('should fail if user is not loggedIn', async () => {
+      const result = await service.createAccount(
+        publicUser,
+        createAdminAccountArgs,
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        error: 'Only Admin can create admin account',
+      });
+    });
+
+    it('should fail if user is not admin', async () => {
+      const result = await service.createAccount(
+        unauthorizedUser,
+        createAdminAccountArgs,
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        error: 'Only Admin can create admin account',
+      });
+    });
+
+    it('should create admin account', async () => {
+      usersRepository.findOne.mockResolvedValue(undefined);
+      usersRepository.create.mockReturnValue(createAdminAccountArgs);
+      usersRepository.save.mockResolvedValue(createAdminAccountArgs);
+      verificationsRepository.create.mockReturnValue({
+        user: createAdminAccountArgs,
+      });
+      verificationsRepository.save.mockResolvedValue({
+        code: 'code',
+      });
+
+      const result = await service.createAccount(
+        authorizedUSer,
+        createAdminAccountArgs,
+      );
+
+      expect(usersRepository.create).toHaveBeenCalled();
+      expect(usersRepository.create).toHaveBeenCalledWith(
+        createAdminAccountArgs,
+      );
+
+      expect(usersRepository.save).toHaveBeenCalled();
+      expect(usersRepository.save).toHaveBeenCalledWith(createAdminAccountArgs);
+
+      expect(verificationsRepository.create).toHaveBeenCalled();
+      expect(verificationsRepository.create).toHaveBeenCalledWith({
+        user: createAdminAccountArgs,
+      });
+
+      expect(verificationsRepository.save).toHaveBeenCalled();
+      expect(verificationsRepository.save).toHaveBeenCalledWith({
+        user: createAdminAccountArgs,
+      });
+
+      expect(mailService.sendVerificationEmail).toHaveBeenCalled();
+      expect(mailService.sendVerificationEmail).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+      );
+      expect(result).toEqual({ ok: true });
+    });
+  });
+
   describe('login', () => {
     const loginArgs = {
       email: 'test@test.com',
@@ -178,6 +284,7 @@ describe('UserService', () => {
       expect(result).toEqual({ ok: false, error: 'Could not log user in' });
     });
   });
+
   describe('findById', () => {
     const findOneArgs = {
       id: 1,
@@ -193,6 +300,7 @@ describe('UserService', () => {
       expect(result).toEqual({ ok: false, error: 'User not found' });
     });
   });
+
   describe('editProfile', () => {
     it('should change email', async () => {
       const oldUser = {
@@ -301,6 +409,7 @@ describe('UserService', () => {
       expect(result).toEqual({ ok: false, error: 'Could not delete account' });
     });
   });
+
   describe('verifyEmail', () => {
     it('should verify email', async () => {
       const mockedVerification = {
