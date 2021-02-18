@@ -4,11 +4,11 @@ import { CoreEntity } from 'src/common/entities/core.entity';
 import { Column, Entity, ManyToOne, RelationId } from 'typeorm';
 import { Restaurant } from './restaurant.entity';
 
-@InputType('ChoiceInputType', { isAbstract: true })
+@InputType('DishChoiceInputType', { isAbstract: true })
 @ObjectType()
-class OptionField {
+export class DishChoice {
   @Field((type) => String)
-  fieldName: string;
+  name: string;
 
   @Field((type) => Int, { nullable: true })
   additionalCharge?: number;
@@ -16,12 +16,15 @@ class OptionField {
 
 @InputType('DishOptionsInputType', { isAbstract: true })
 @ObjectType()
-class DishOption {
+export class DishOption {
   @Field((type) => String)
   name: string;
 
-  @Field((type) => [OptionField], { nullable: true })
-  optionFields?: OptionField[];
+  @Field((type) => [DishChoice], { nullable: true })
+  choices?: DishChoice[];
+
+  @Field((type) => Int, { nullable: true })
+  additionalCharge?: number;
 }
 
 @InputType('DishInputType', { isAbstract: true })
