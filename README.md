@@ -9,7 +9,6 @@
 > This project is an Uber Eats clone practice project for backend, following lecture from [Nomad Coders](https://nomadcoders.co/)
 
 ## Models
-____
 
 #### Core Entity:
 
