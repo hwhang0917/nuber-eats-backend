@@ -83,7 +83,7 @@ describe('Restaurants Service', () => {
       providers: [
         RestaurantService,
         {
-          provide: getRepositoryToken(RestaurantRepository),
+          provide: getCustomRepositoryToken(RestaurantRepository),
           useValue: {
             ...mockRepository(),
             getRestaurantsByCategory: jest.fn(),
