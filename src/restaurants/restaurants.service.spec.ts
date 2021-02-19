@@ -29,18 +29,12 @@ const mockRepository = () => ({
 });
 
 type MockRepository<T = any> = Partial<Record<keyof Repository<T>, jest.Mock>>;
-
-type MockRestaurantRepository = Partial<
-  Record<keyof RestaurantRepository, jest.Mock>
->;
-type MockCategoryRepository = Partial<
-  Record<keyof CategoryRepository, jest.Mock>
->;
+type MockCustomRepository<T> = Partial<Record<keyof T, jest.Mock>>;
 
 describe('Restaurants Service', () => {
   let service: RestaurantService;
-  let restaurantsRepository: MockRestaurantRepository;
-  let categoriesRepository: MockCategoryRepository;
+  let restaurantsRepository: MockCustomRepository<RestaurantRepository>;
+  let categoriesRepository: MockCustomRepository<CategoryRepository>;
   let dishRepository: MockRepository<Dish>;
 
   const mockUser: User = {
@@ -52,6 +46,8 @@ describe('Restaurants Service', () => {
     role: UserRole.Owner,
     verified: true,
     restaurants: [],
+    orders: [],
+    rides: [],
     hashPassword: jest.fn(),
     checkPassword: jest.fn(),
   };
@@ -77,6 +73,7 @@ describe('Restaurants Service', () => {
     owner: mockUser,
     ownerId: mockUser.id,
     menu: [],
+    orders: [],
   };
 
   const mockRestaurants = ['restaurantA', 'restaurantB', 'restaurantC'];
@@ -608,10 +605,10 @@ describe('Restaurants Service', () => {
       description: 'test',
       options: [
         {
-          name: 'fieldTest',
-          optionFields: [
-            { fieldName: 'f1', additionalCharge: 1 },
-            { fieldName: 'f2', additionalCharge: 1 },
+          name: 'testOption',
+          choices: [
+            { name: 'testChoice_1', additionalCharge: 1 },
+            { name: 'testChoice_2', additionalCharge: 2 },
           ],
         },
       ],
