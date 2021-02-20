@@ -95,9 +95,51 @@ describe('Orders Service', () => {
   });
 
   describe('createOrder', () => {
+    const mockPrice = {
+      dishPrice: 1000,
+      optionOne_choiceOnePrice: 500,
+      optionTwoPrice: 500,
+    };
+
+    const mockRestaurant = { id: 0 };
+
+    const mockDish = {
+      id: 0,
+      name: 'testDish',
+      description: 'testDesc',
+      price: mockPrice.dishPrice,
+      restaurantId: mockRestaurant.id,
+      options: [
+        {
+          name: 'testOption_1',
+          choices: [
+            {
+              name: 'testChoice_1',
+              additionalCharge: mockPrice.optionOne_choiceOnePrice,
+            },
+          ],
+        },
+        {
+          name: 'testOption_2',
+          additionalCharge: mockPrice.optionTwoPrice,
+        },
+      ],
+    };
+
+    const optionInputOne = {
+      name: mockDish.options[0].name,
+      choice: mockDish.options[0].choices[0].name,
+    };
+    const optionInputTwo = { name: mockDish.options[1].name };
+
     const createOrderArgs: CreateOrderInput = {
-      restaurantId: 0,
-      items: [{ dishId: 0 }],
+      restaurantId: mockDish.restaurantId,
+      items: [
+        {
+          dishId: mockDish.id,
+          options: [optionInputOne, optionInputTwo],
+        },
+      ],
     };
 
     it('should fail if restaurant does not exists', async () => {
@@ -115,7 +157,7 @@ describe('Orders Service', () => {
     });
 
     it('should fail if dish does not exists', async () => {
-      restaurantsRepository.findOne.mockResolvedValue({ id: 0 });
+      restaurantsRepository.findOne.mockResolvedValue(mockRestaurant);
       dishesRepository.findOne.mockResolvedValue(undefined);
       const result = await service.createOrder(mockClientUser, createOrderArgs);
 
@@ -142,6 +184,55 @@ describe('Orders Service', () => {
         ok: false,
         error: 'Could not create order',
       });
+    });
+
+    it('should create order with options', async () => {
+      restaurantsRepository.findOne.mockResolvedValue(mockRestaurant);
+      dishesRepository.findOne.mockResolvedValue(mockDish);
+
+      const mockOrderItem = { dish: mockDish };
+      orderItemsRepository.save.mockResolvedValue(mockOrderItem);
+
+      const mockOrder = {
+        customer: mockClientUser,
+        restaurant: mockRestaurant,
+        total: mockPrice.dishPrice,
+        items: [mockOrderItem],
+      };
+      ordersRepository.create.mockResolvedValue(mockOrder);
+
+      const result = await service.createOrder(mockClientUser, createOrderArgs);
+
+      expect(result).toEqual({ ok: true });
+      expect(orderItemsRepository.create).toHaveBeenCalled();
+      expect(orderItemsRepository.save).toHaveBeenCalled();
+      expect(ordersRepository.create).toHaveBeenCalled();
+      expect(ordersRepository.save).toHaveBeenCalled();
+    });
+
+    it('should create order with no options', async () => {
+      createOrderArgs.items[0].options.length = 0;
+      restaurantsRepository.findOne.mockResolvedValue(mockRestaurant);
+      dishesRepository.findOne.mockResolvedValue(mockDish);
+
+      const mockOrderItem = { dish: mockDish };
+      orderItemsRepository.save.mockResolvedValue(mockOrderItem);
+
+      const mockOrder = {
+        customer: mockClientUser,
+        restaurant: mockRestaurant,
+        total: mockPrice.dishPrice,
+        items: [mockOrderItem],
+      };
+      ordersRepository.create.mockResolvedValue(mockOrder);
+
+      const result = await service.createOrder(mockClientUser, createOrderArgs);
+
+      expect(result).toEqual({ ok: true });
+      expect(orderItemsRepository.create).toHaveBeenCalled();
+      expect(orderItemsRepository.save).toHaveBeenCalled();
+      expect(ordersRepository.create).toHaveBeenCalled();
+      expect(ordersRepository.save).toHaveBeenCalled();
     });
   });
 });

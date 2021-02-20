@@ -67,14 +67,14 @@ export class OrderService {
         orderItems.push(orderItem);
       }
 
-      await this.orders.save(
-        this.orders.create({
-          customer,
-          restaurant,
-          total: orderTotal,
-          items: orderItems,
-        }),
-      );
+      const newOrder = this.orders.create({
+        customer,
+        restaurant,
+        total: orderTotal,
+        items: orderItems,
+      });
+      await this.orders.save(newOrder);
+
       return { ok: true };
     } catch (error) {
       return {
