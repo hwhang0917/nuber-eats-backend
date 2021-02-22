@@ -210,7 +210,7 @@ describe('Orders Service', () => {
       expect(ordersRepository.save).toHaveBeenCalled();
     });
 
-    it('should create order with no options', async () => {
+    it('should create order without options', async () => {
       createOrderArgs.items[0].options.length = 0;
       restaurantsRepository.findOne.mockResolvedValue(mockRestaurant);
       dishesRepository.findOne.mockResolvedValue(mockDish);
