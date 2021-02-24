@@ -6,6 +6,7 @@ import { RestaurantRepository } from 'src/restaurants/repositories/restaurant.re
 import { User, UserRole } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { CreateOrderInput, CreateOrderOutput } from './dtos/create-order.dto';
+import { GetOrderInput, GetOrderOutput } from './dtos/get-order.dto';
 import { GetOrdersInput, GetOrdersOutput } from './dtos/get-orders.dto';
 import { OrderItem } from './entities/order-item.entity';
 import { Order } from './entities/order.entity';
@@ -43,20 +44,22 @@ export class OrderService {
           return { ok: false, error: 'Dish not found' };
         }
         let dishTotal = dish.price;
-        for (const itemOption of item.options) {
-          const dishOption = dish.options.find(
-            (dishOption) => dishOption.name === itemOption.name,
-          );
-          if (dishOption) {
-            if (dishOption.additionalCharge) {
-              dishTotal += dishOption.additionalCharge;
-            } else {
-              const dishOptionChoice = dishOption.choices.find(
-                (optionChoice) => optionChoice.name === itemOption.choice,
-              );
-              if (dishOptionChoice) {
-                if (dishOptionChoice.additionalCharge) {
-                  dishTotal += dishOptionChoice.additionalCharge;
+        if (item.options) {
+          for (const itemOption of item.options) {
+            const dishOption = dish.options.find(
+              (dishOption) => dishOption.name === itemOption.name,
+            );
+            if (dishOption) {
+              if (dishOption.additionalCharge) {
+                dishTotal += dishOption.additionalCharge;
+              } else {
+                const dishOptionChoice = dishOption.choices.find(
+                  (optionChoice) => optionChoice.name === itemOption.choice,
+                );
+                if (dishOptionChoice) {
+                  if (dishOptionChoice.additionalCharge) {
+                    dishTotal += dishOptionChoice.additionalCharge;
+                  }
                 }
               }
             }
@@ -96,12 +99,14 @@ export class OrderService {
         orders = await this.orders.find({
           where: {
             customer: user,
+            ...(status && { status }),
           },
         });
       } else if (user.role === UserRole.Delivery) {
         orders = await this.orders.find({
           where: {
             driver: user,
+            ...(status && { status }),
           },
         });
       } else if (user.role === UserRole.Owner) {
@@ -112,6 +117,10 @@ export class OrderService {
           relations: ['orders'],
         });
         orders = restaurants.map((restaurant) => restaurant.orders).flat(1);
+
+        if (status) {
+          orders = orders.filter((order) => order.status === status);
+        }
       }
 
       return {
@@ -122,6 +131,53 @@ export class OrderService {
       return {
         ok: false,
         error: 'Could not get orders',
+      };
+    }
+  }
+
+  async getOrder(
+    user: User,
+    { id: orderId }: GetOrderInput,
+  ): Promise<GetOrderOutput> {
+    try {
+      const order = await this.orders.findOne(orderId, {
+        relations: ['restaurant'],
+      });
+      if (!order) {
+        return {
+          ok: false,
+          error: 'Order not found',
+        };
+      }
+      let canSee = true;
+      if (user.role === UserRole.Client && order.customerId !== user.id) {
+        canSee = false;
+      }
+      if (user.role === UserRole.Delivery && order.driverId !== user.id) {
+        canSee = false;
+      }
+      if (
+        user.role === UserRole.Owner &&
+        order.restaurant.ownerId !== user.id
+      ) {
+        canSee = false;
+      }
+
+      if (!canSee) {
+        return {
+          ok: false,
+          error: "You cannot get order that you don't own",
+        };
+      }
+
+      return {
+        ok: true,
+        order,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: 'Could not get order',
       };
     }
   }
